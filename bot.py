@@ -40,8 +40,8 @@ async def commands_info(ctx):
         "➡️ `/pay` — Submit a payment via an interactive form.\n"
         "_Fill out Creator Name, Amount, and Payment Info_\n"
         "_If you have a PDF bill, fill this out and then send the PDF afterwards._\n\n"
-        "➡️ `!scan <username> <mo/year>` — Audit a user's payments for a specific month/year.\n"
-        "_Example:_ `!scan jacobm6039 4/2025`\n"
+        "➡️ `!audit <username> <mo/year>` — Audit a user's payments for a specific month/year.\n"
+        "_Example:_ `!audit jacobm6039 4/2025`\n"
         "_Returns all payments submitted by that user for April 2025._"
     )
     await ctx.send(response)
@@ -118,8 +118,8 @@ async def pay(interaction: discord.Interaction):
 
 
 # SCAN OVER BOT MESSAGES FILTERED BY USERNAME AND DATE (M/YY format)
-@bot.command(name='scan', help='Scans payments by username and date (e.g., !scan Jacob 2/25 for Feb 2025)')
-async def scan(ctx, discord_username: str, date_str: str):
+@bot.command(name='audit', help='Scans payments by username and date (e.g., !scan Jacob 2/25 for Feb 2025)')
+async def audit(ctx, discord_username: str, date_str: str):
     results = []   # Complete messages matching criteria
     summaries = [] # Summary lines: Creator, Amount, and Date
 
@@ -140,7 +140,7 @@ async def scan(ctx, discord_username: str, date_str: str):
     def remove_markdown(text: str) -> str:
         return re.sub(r'(\*\*\*|\*\*|\*|__)', '', text)
 
-    async for msg in ctx.channel.history(limit=10000):  # Increase limit if needed
+    async for msg in ctx.channel.history(limit=100000):  # NOTE: Increase limit if needed
         if msg.author != ctx.bot.user:
             continue  # Only look at messages sent by the bot
 
