@@ -35,7 +35,7 @@ async def hello(ctx):
 async def commands_info(ctx):
     response = (
         "**Available Commands:**\n\n"
-        "➡️ `!users` — Lists all usernames in the current channel.\n\n"
+        "➡️ `!users` — Lists all usernames in the server.\n\n"
         "➡️ `/pay` — Submit a payment via an interactive form.\n"
         "_Fill out Creator Name, Amount, and Payment Info_\n"
         "_If you have a PDF bill, fill this out and then send the PDF afterwards._\n\n"
@@ -45,11 +45,11 @@ async def commands_info(ctx):
     )
     await ctx.send(response)
 
-@bot.command(name='users', help='Lists all usernames in the current channel.')
+@bot.command(name='users', help='Lists all usernames in the server.')
 async def users(ctx):
-    members = ctx.channel.members
+    members = ctx.guild.members
     usernames = [member.name for member in members]
-    response = "**Users in this channel:**\n" + "\n".join(usernames)
+    response = "**Users in this server:**\n" + "\n".join(usernames)
     await ctx.send(response)
 
 # ----------------- START OF PAYMENT MODAL CODE (UPDATED) -----------------
