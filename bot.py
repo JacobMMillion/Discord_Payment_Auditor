@@ -2,12 +2,14 @@ import discord
 from discord.ext import commands
 import os
 from dotenv import load_dotenv
-import aiohttp
-import fitz
-import tempfile
-from dataclasses import dataclass
 from datetime import datetime
 import re
+
+# NO LONGER NEED THESE, but leaving in case we ever want to do PDF things
+# import aiohttp
+# import fitz
+# import tempfile
+# from dataclasses import dataclass
 
 load_dotenv()
 
