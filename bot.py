@@ -40,9 +40,11 @@ async def commands_info(ctx):
         "➡️ `/pay` — Submit a payment via an interactive form.\n"
         "_Fill out Creator Name, Amount, and Payment Info_\n"
         "_If you have a PDF bill, fill this out and then send the PDF afterwards._\n\n"
-        "➡️ `!audit <username> <mo/year>` — Audit a user's payments for a specific month/year. Use `all` as the username to retrieve payments for every user."
+        "➡️ `!audit <username> <mo/year>` — Audit a user's payments for a specific month/year. Use `all` as the username to retrieve payments for every user.\n"
         "_Example:_ `!audit jacobm6039 4/2025`\n"
-        "_Returns all payments submitted by that user for April 2025._"
+        "_Returns all payments submitted by that user for April 2025._\n"
+        "_Example:_ `!audit all 4/2025`\n"
+        "_Returns all payments submitted by all users for April 2025._"
     )
     await ctx.send(response)
 
