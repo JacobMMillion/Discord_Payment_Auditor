@@ -29,6 +29,21 @@ async def on_ready():
 async def hello(ctx):
     await ctx.send('Pong!')
 
+
+# COMMANDS INFO
+@bot.command(name='commands', help='Displays available commands and how to use them.')
+async def commands_info(ctx):
+    response = (
+        "**Available Commands:**\n\n"
+        "➡️ `/pay` — Submit a payment via an interactive form.\n"
+        "_Fill out Creator Name, Amount, and Payment Info_\n"
+        "_If you have a PDF bill, fill this out and then send the PDF afterwards._\n\n"
+        "➡️ `!scan <username> <mo/year>` — Audit a user's payments for a specific month/year.\n"
+        "_Example:_ `!scan jacobm6039 4/2025`\n"
+        "_Returns all payments submitted by that user for April 2025._"
+    )
+    await ctx.send(response)
+
 # ----------------- START OF PAYMENT MODAL CODE (UPDATED) -----------------
 # In this version, we remove the "Your Name" field so that the user's Discord name
 # is auto‑populated from the interaction and cannot be changed.
