@@ -40,7 +40,7 @@ async def commands_info(ctx):
         "➡️ `/pay` — Submit a payment via an interactive form.\n"
         "_Fill out Creator Name, Amount, and Payment Info_\n"
         "_If you have a PDF bill, fill this out and then send the PDF afterwards._\n\n"
-        "➡️ `!audit <username> <mo/year>` — Audit a user's payments for a specific month/year.\n"
+        "➡️ `!audit <username> <mo/year>` — Audit a user's payments for a specific month/year. Use `all` as the username to retrieve payments for every user."
         "_Example:_ `!audit jacobm6039 4/2025`\n"
         "_Returns all payments submitted by that user for April 2025._"
     )
@@ -139,6 +139,9 @@ async def audit(ctx, discord_username: str, date_str: str):
     # Helper function to remove markdown formatting (asterisks, underscores, etc.)
     def remove_markdown(text: str) -> str:
         return re.sub(r'(\*\*\*|\*\*|\*|__)', '', text)
+    
+    # Sum
+    total_amount = 0.0
 
     async for msg in ctx.channel.history(limit=100000):  # NOTE: Increase limit if needed
         if msg.author != ctx.bot.user:
@@ -174,13 +177,20 @@ async def audit(ctx, discord_username: str, date_str: str):
             elif line_lower.startswith("submitted by:"):
                 submitted_by = line[len("submitted by:"):].strip()
 
-        # Check that the message was submitted by the specified discord_username.
-        if submitted_by is None or discord_username.lower() not in submitted_by.lower():
+        # Check that the message was submitted by the specified discord_username or do not continue if "all".
+        if discord_username.lower() != "all" and (submitted_by is None or discord_username.lower() not in submitted_by.lower()):
             continue
 
         # Check that the submission date matches the requested month and year.
         if submitted_on is None or (submitted_on.month != month or submitted_on.year != year):
             continue
+
+        # Update sum
+        try:
+            total_amount += float(amount)
+        except (TypeError, ValueError):
+            pass
+
 
         # Build a summary line from the extracted fields.
         # For each matching message in your scan command:
@@ -190,7 +200,11 @@ async def audit(ctx, discord_username: str, date_str: str):
 
     # Send a final summary message in chat.
     if summaries:
-        summary_text = f"✅ There are {len(summaries)} payment(s) from '{discord_username}' for {month}/{year}:\n" + "\n".join(summaries)
+        if discord_username.lower() == "all":
+            summary_text = f"✅ There are {len(summaries)} payment(s) for {month}/{year} | Total Amount: ${total_amount:.2f}:\n" + "\n".join(summaries)
+        else:
+            summary_text = f"✅ There are {len(summaries)} payment(s) from '{discord_username}' for {month}/{year} | Total Amount: ${total_amount:.2f}:\n" + "\n".join(summaries)
+
         await ctx.send(summary_text)
         # For verification, also print each complete message to the console.
         for m in results:
