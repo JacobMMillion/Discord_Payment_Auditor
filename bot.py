@@ -80,7 +80,7 @@ class PaymentModal(discord.ui.Modal, title="Submit a Payment"):
         
     async def on_submit(self, interaction: discord.Interaction):
         # Automatically retrieve the user's Discord display name.
-        user_name = interaction.user.display_name
+        user_name = interaction.user.name
 
         # Get the current date and time for the submission.
         submission_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
