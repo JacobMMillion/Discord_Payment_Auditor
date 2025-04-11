@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 import re
-import json
+import psycopg2 # we want to use an actual database instead of using json
 
 # NO LONGER NEED THESE, but leaving in case we ever want to do PDF things
 # import aiohttp
@@ -20,22 +20,46 @@ intents.message_content = True
 intents.members = True  # Enables member caching
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# File to persist the creator list
-CREATORS_FILE = "creators.json"
+CONN_STR = os.getenv('DATABASE_URL')
 
+# Load creator names from the DB
 def load_creators():
-    try:
-        with open(CREATORS_FILE, "r") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        # Default creators if file doesn't exist
-        default_creators = ["Alice", "Bob", "Charlie"]
-        save_creators(default_creators)
-        return default_creators
+    """
+    Loads creator names from the 'creator_names' table.
+    """
+    conn = psycopg2.connect(CONN_STR)
+    cursor = conn.cursor()
+    
+    query = "SELECT creator_name FROM creator_names;"
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    creators = [row[0] for row in rows]
+    
+    cursor.close()
+    conn.close()
+    return creators
 
+# Save new creator names to the DB
 def save_creators(creators):
-    with open(CREATORS_FILE, "w") as f:
-        json.dump(creators, f)
+    """
+    Inserts a list of creator names into the 'creator_names' table.
+    Uses ON CONFLICT DO NOTHING to avoid duplicate inserts.
+    """
+    conn = psycopg2.connect(CONN_STR)
+    cursor = conn.cursor()
+    
+    query = """
+    INSERT INTO creator_names (creator_name)
+    VALUES (%s)
+    ON CONFLICT (creator_name) DO NOTHING;
+    """
+    for creator in creators:
+        cursor.execute(query, (creator,))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 
 # Global list for creator names, loaded from file.
 global_creators = load_creators()
