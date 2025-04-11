@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 import re
+import json
 
 # NO LONGER NEED THESE, but leaving in case we ever want to do PDF things
 # import aiohttp
@@ -12,24 +13,42 @@ import re
 # from dataclasses import dataclass
 
 load_dotenv()
-
 TOKEN = os.getenv('TOKEN')
 
 intents = discord.Intents.default()
 intents.message_content = True
-intents.members = True  # Added this line to enable member caching
+intents.members = True  # Enables member caching
 bot = commands.Bot(command_prefix='!', intents=intents)
+
+# File to persist the creator list
+CREATORS_FILE = "creators.json"
+
+def load_creators():
+    try:
+        with open(CREATORS_FILE, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # Default creators if file doesn't exist
+        default_creators = ["Alice", "Bob", "Charlie"]
+        save_creators(default_creators)
+        return default_creators
+
+def save_creators(creators):
+    with open(CREATORS_FILE, "w") as f:
+        json.dump(creators, f)
+
+# Global list for creator names, loaded from file.
+global_creators = load_creators()
 
 @bot.event
 async def on_ready():
-    # Sync the slash commands with Discord so the new command is registered.
-    await bot.tree.sync()  
+    # Sync slash commands with Discord so the new command is registered.
+    await bot.tree.sync()
     print(f'{bot.user} has connected to Discord!')
 
 @bot.command(name='ping', help='Responds with a greeting')
 async def hello(ctx):
     await ctx.send('Pong!')
-
 
 # COMMANDS INFO
 @bot.command(name='commands', help='Displays available commands and how to use them.')
@@ -38,13 +57,10 @@ async def commands_info(ctx):
         "**Available Commands:**\n\n"
         "➡️ `!users` — Lists all usernames in the server.\n\n"
         "➡️ `/pay` — Submit a payment via an interactive form.\n"
-        "_Fill out Creator Name, Amount, and Payment Info_\n"
-        "_If you have a PDF bill, fill this out and then send the PDF afterwards._\n\n"
+        "_After selecting a creator (or adding one), fill out Amount and Payment Info._\n\n"
         "➡️ `!audit <username> <mo/year>` — Audit a user's payments for a specific month/year. Use `all` as the username to retrieve payments for every user.\n"
-        "_Example:_ `!audit jacobm6039 4/2025`\n"
-        "_Returns all payments submitted by that user for April 2025._\n"
-        "_Example:_ `!audit all 4/2025`\n"
-        "_Returns all payments submitted by all users for April 2025._"
+        "_Example:_ `!audit jacobm6039 4/2025` returns payments for that user in April 2025.\n"
+        "_Example:_ `!audit all 4/2025` returns payments for everyone in April 2025."
     )
     await ctx.send(response)
 
@@ -55,20 +71,61 @@ async def users(ctx):
     response = "**Users in this server:**\n" + "\n".join(usernames)
     await ctx.send(response)
 
-# ----------------- START OF PAYMENT MODAL CODE (UPDATED) -----------------
-# In this version, we remove the "Your Name" field so that the user's Discord name
-# is auto‑populated from the interaction and cannot be changed.
-# The modal will now include only 4 fields:
-#   1. Name of Creator
-#   2. Amount
-#   3. Payment Info (combines method and details)
+# ----------------- PAYMENT SUBMISSION WITH DROPDOWN -----------------
 
-class PaymentModal(discord.ui.Modal, title="Submit a Payment"):
-    creator_name = discord.ui.TextInput(
-        label="Name of Creator",
-        placeholder="Enter the creator's first and last name (capitalized)",
+# This view shows a dropdown to select a creator and a button to add a new creator.
+class CreatorSelectView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(CreatorSelect())
+    
+    @discord.ui.button(label="Add New Creator", style=discord.ButtonStyle.primary, custom_id="add_creator")
+    async def add_new_creator(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(AddCreatorModal())
+
+# The dropdown select for creators.
+class CreatorSelect(discord.ui.Select):
+    def __init__(self):
+        # Build options from the global creator list.
+        options = [discord.SelectOption(label=name) for name in global_creators]
+        # Always include an option to add a new creator.
+        options.append(discord.SelectOption(label="Other", description="Add a new creator"))
+        super().__init__(placeholder="Select a creator", min_values=1, max_values=1, options=options)
+    
+    async def callback(self, interaction: discord.Interaction):
+        chosen = self.values[0]
+        if chosen == "Other":
+            await interaction.response.send_modal(AddCreatorModal())
+        else:
+            # Launch the Payment Modal with the selected creator name.
+            await interaction.response.send_modal(PaymentModal(creator_name=chosen))
+
+# Modal to add a new creator.
+class AddCreatorModal(discord.ui.Modal, title="Add New Creator"):
+    new_creator = discord.ui.TextInput(
+        label="New Creator Name",
+        placeholder="Enter the new creator's name",
         style=discord.TextStyle.short
     )
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        global global_creators
+        new_name = self.new_creator.value
+        if new_name not in global_creators:
+            global_creators.append(new_name)
+            save_creators(global_creators)  # Persist the updated list to file.
+            await interaction.response.send_message(f"Creator '{new_name}' added!", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Creator '{new_name}' already exists.", ephemeral=True)
+        # Send back the creator selection view so the user can continue.
+        await interaction.followup.send("Please select a creator:", view=CreatorSelectView(), ephemeral=True)
+
+# The Payment Modal now no longer includes a text field for the creator.
+class PaymentModal(discord.ui.Modal, title="Submit a Payment"):
+    def __init__(self, creator_name: str):
+        super().__init__()
+        self.creator_name = creator_name  # Set the selected creator name
+
     amount = discord.ui.TextInput(
         label="Amount",
         placeholder="Enter the payment amount (no dollar sign)",
@@ -76,11 +133,9 @@ class PaymentModal(discord.ui.Modal, title="Submit a Payment"):
     )
     payment_info = discord.ui.TextInput(
         label="Payment Info",
-        # Updated placeholder is 66 characters (under 100)
         placeholder="Enter payment method (e.g., PayPal, ACH) and details or type 'pdf'.",
         style=discord.TextStyle.long
     )
-    # Note field added with a default value.
     note = discord.ui.TextInput(
         label="Note",
         placeholder="If you have a PDF bill, fill this out and then send the PDF.",
@@ -88,33 +143,27 @@ class PaymentModal(discord.ui.Modal, title="Submit a Payment"):
         default="If you have a PDF bill, fill this out and then send the PDF.",
         required=False
     )
-        
+    
     async def on_submit(self, interaction: discord.Interaction):
-        # Automatically retrieve the user's Discord display name.
         user_name = interaction.user.name
-
-        # Get the current date and time for the submission.
         submission_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Process the form data when the modal is submitted
-        response = (
+        response_text = (
             f"**Payment Data Submitted**\n\n"
-            f"__*Creator Name:*__ {self.creator_name.value}\n"
+            f"__*Creator Name:*__ {self.creator_name}\n"
             f"__*Amount:*__ ${self.amount.value}\n"
             f"__*Payment Info:*__ {self.payment_info.value}\n\n"
             f"*Submitted by:* {user_name}\n"
             f"*Submitted on:* {submission_timestamp}"
         )
-        # Send a confirmation message
-        await interaction.response.send_message(response, ephemeral=False)
+        await interaction.response.send_message(response_text, ephemeral=False)
 
-# Slash command version of pay (no changes here)
-@bot.tree.command(name="pay", description="Submit a Payment Message via an Interactive Modal Form")
+# Slash command version of pay: first, select a creator then fill in the rest.
+@bot.tree.command(name="pay", description="Submit a Payment via an Interactive Form")
 async def pay(interaction: discord.Interaction):
-    modal = PaymentModal()
-    await interaction.response.send_modal(modal)
-# ----------------- END OF PAYMENT MODAL CODE (UPDATED) -----------------
+    # Show the creator selection view first.
+    await interaction.response.send_message("Please select a creator:", view=CreatorSelectView(), ephemeral=True)
 
+# ----------------- END OF PAYMENT SUBMISSION WITH DROPDOWN -----------------
 
 
 
@@ -189,7 +238,8 @@ async def audit(ctx, discord_username: str, date_str: str):
 
         # Update sum
         try:
-            total_amount += float(amount)
+            clean_amount = amount.replace("$", "").replace(",", "").strip()
+            total_amount += float(clean_amount)
         except (TypeError, ValueError):
             pass
 
