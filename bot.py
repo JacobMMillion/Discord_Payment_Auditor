@@ -37,6 +37,8 @@ def load_creators():
     
     cursor.close()
     conn.close()
+
+    creators.sort()
     return creators
 
 # Load app names from the app_names table
@@ -129,7 +131,7 @@ async def commands_info(interaction: discord.Interaction):
 @bot.tree.command(name='users', description='Lists all usernames in the server.')
 async def users(interaction: discord.Interaction):
     members = interaction.guild.members
-    usernames = [member.name for member in members]
+    usernames = sorted(member.name for member in members)
     response = "**Users in this server:**\n" + "\n".join(usernames)
     await interaction.response.send_message(response, ephemeral=True)
 
@@ -179,7 +181,8 @@ class AddCreatorModal(discord.ui.Modal, title="Add New Creator"):
         global global_creators
         new_name = self.new_creator.value
         if new_name not in global_creators:
-            global_creators.append(new_name)
+            global_creators.append(new_name) # Append to local list
+            global_creators.sort() # Sort new local list
             save_creators(global_creators)  # Persist the updated list to file.
             await interaction.response.send_message(f"Creator '{new_name}' added!", ephemeral=True)
         else:
