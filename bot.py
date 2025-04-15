@@ -3,6 +3,7 @@ from discord.ext import commands
 import os
 from dotenv import load_dotenv
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import re
 import psycopg2 # we want to use an actual database instead of using json
 
@@ -236,7 +237,9 @@ class PaymentModal(discord.ui.Modal):
     
     async def on_submit(self, interaction: discord.Interaction):
         user_name = interaction.user.name
-        submission_date = datetime.now().date()
+        est = ZoneInfo("America/New_York")
+        submission_dt = datetime.now(est)
+        submission_date = submission_dt.date()
         
         # Attempt to cast the amount to float (you might include additional validation here)
         try:
