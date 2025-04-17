@@ -136,8 +136,8 @@ async def commands_info(interaction: discord.Interaction):
     response = (
         "**Available Commands:**\n\n"
         "➡️ `/users` — Lists all usernames in the server.\n\n"
-        "➡️ `/pay` — Submit a payment via slash command with autocomplete.\n"
-        "   _Start typing to select a creator; if it doesn’t exist, just type the full new name and submit—it will be added automatically. Then select an app and enter amount and payment info in the popup form._\n\n"
+        "➡️ `/pay` — Submit a payment with autocomplete and auto‑add creators.\n"
+        "   _Type to find or add a creator, select an app, then enter amount & payment info in the popup._\n\n"
         "➡️ `/audit` — Audit payments by username, app, and month/year.\n"
         "   _When you run `/audit`, you will be prompted to enter three pieces of information:_\n"
         "   • **Username:** Enter a Discord username or `all` for every user.\n"
@@ -223,7 +223,7 @@ class PaymentModal(discord.ui.Modal):
 # Then show the payment modal
 @bot.tree.command(
     name="pay",
-    description="Submit a payment (creator & app via autocomplete)"
+    description="Submit a payment"
 )
 @app_commands.describe(
     creator="Start typing a creator name…",
