@@ -137,7 +137,7 @@ async def commands_info(interaction: discord.Interaction):
         "**Available Commands:**\n\n"
         "➡️ `/users` — Lists all usernames in the server.\n\n"
         "➡️ `/pay` — Submit a payment via slash command with autocomplete.\n"
-        "   _Start typing to select creator and app, then enter amount and payment info in the popup form._\n\n"
+        "   _Start typing to select a creator; if it doesn’t exist, just type the full new name and submit—it will be added automatically. Then select an app and enter amount and payment info in the popup form._\n\n"
         "➡️ `/audit` — Audit payments by username, app, and month/year.\n"
         "   _When you run `/audit`, you will be prompted to enter three pieces of information:_\n"
         "   • **Username:** Enter a Discord username or `all` for every user.\n"
