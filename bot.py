@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 import os
 from dotenv import load_dotenv
 from datetime import datetime
@@ -100,6 +101,19 @@ def save_queued_payment(creator_name, app_name, discord_user, amount, payment_da
 # Keep separate from simply getting usernames from queued_payments, as we may want to store payment info here
 global_creators = load_creators()
 global_apps = load_apps()
+
+# Autocomplete for creator names
+async def creator_autocomplete(
+    interaction: discord.Interaction,
+    current: str
+) -> list[app_commands.Choice[str]]:
+    # return up to 25 creators containing the current substring
+    matches = [
+        app_commands.Choice(name=name, value=name)
+        for name in global_creators
+        if current.lower() in name.lower()
+    ][:25]
+    return matches
 
 @bot.event
 async def on_ready():
@@ -273,10 +287,26 @@ class PaymentModal(discord.ui.Modal):
         await interaction.response.send_message(response_text, ephemeral=False)
 
 # Slash command version of pay: first, select a creator then fill in the rest.
-@bot.tree.command(name="pay", description="Submit a Payment via an Interactive Form")
-async def pay(interaction: discord.Interaction):
-    # Show the creator selection view first.
-    await interaction.response.send_message("Please select a creator:", view=CreatorSelectView(), ephemeral=True)
+@bot.tree.command(
+    name="pay",
+    description="Submit a payment (creator via autocomplete)"
+)
+@app_commands.describe(
+    creator="Start typing a creator name…"
+)
+@app_commands.autocomplete(
+    creator=creator_autocomplete
+)
+async def pay(
+    interaction: discord.Interaction,
+    creator: str
+):
+    """Slash‑command: picks creator via autocomplete, then shows app dropdown."""
+    await interaction.response.send_message(
+        "Now select an app for this payment:",
+        view=AppSelectView(creator),
+        ephemeral=True
+    )
 
 # ----------------- END OF PAYMENT SUBMISSION WITH DROPDOWN -----------------
 
