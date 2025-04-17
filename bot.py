@@ -5,14 +5,7 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 from zoneinfo import ZoneInfo
-import re
-import psycopg2 # we want to use an actual database instead of using json
-
-# NO LONGER NEED THESE, but leaving in case we ever want to do PDF things
-# import aiohttp
-# import fitz
-# import tempfile
-# from dataclasses import dataclass
+import psycopg2
 
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
@@ -115,6 +108,18 @@ async def creator_autocomplete(
     ][:25]
     return matches
 
+# Autocomplete for app names
+async def app_autocomplete(
+    interaction: discord.Interaction,
+    current: str
+) -> list[app_commands.Choice[str]]:
+    matches = [
+        app_commands.Choice(name=a, value=a)
+        for a in global_apps
+        if current.lower() in a.lower()
+    ][:25]
+    return matches
+
 @bot.event
 async def on_ready():
     # Sync slash commands with Discord so the new command is registered.
@@ -131,8 +136,8 @@ async def commands_info(interaction: discord.Interaction):
     response = (
         "**Available Commands:**\n\n"
         "➡️ `/users` — Lists all usernames in the server.\n\n"
-        "➡️ `/pay` — Submit a payment via an interactive form.\n"
-        "   _After selecting a creator (or adding one), select an app, then fill out Amount and Payment Info._\n\n"
+        "➡️ `/pay` — Submit a payment via slash command with autocomplete.\n"
+        "   _Start typing to select creator and app, then enter amount and payment info in the popup form._\n\n"
         "➡️ `/audit` — Audit payments by username, app, and month/year.\n"
         "   _When you run `/audit`, you will be prompted to enter three pieces of information:_\n"
         "   • **Username:** Enter a Discord username or `all` for every user.\n"
@@ -150,79 +155,7 @@ async def users(interaction: discord.Interaction):
     response = "**Users in this server:**\n" + "\n".join(usernames)
     await interaction.response.send_message(response, ephemeral=True)
 
-# ----------------- PAYMENT SUBMISSION WITH DROPDOWN -----------------
-
-# This view shows a dropdown to select a creator and a button to add a new creator.
-class CreatorSelectView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-        self.add_item(CreatorSelect())
-    
-    @discord.ui.button(label="Add New Creator", style=discord.ButtonStyle.primary, custom_id="add_creator")
-    async def add_new_creator(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(AddCreatorModal())
-
-# The dropdown select for creators, which leads to the app select, which should then lead to the payment view.
-class CreatorSelect(discord.ui.Select):
-    def __init__(self):
-        # Build options from the global creator list.
-        options = [discord.SelectOption(label=name) for name in global_creators]
-        # Always include an option to add a new creator.
-        options.append(discord.SelectOption(label="Other", description="Add a new creator"))
-        super().__init__(placeholder="Select a creator", min_values=1, max_values=1, options=options)
-    
-    async def callback(self, interaction: discord.Interaction):
-        chosen = self.values[0]
-        if chosen == "Other":
-            await interaction.response.send_modal(AddCreatorModal())
-        else:
-            # TODO: ? Launch the Payment Modal with the selected creator name.
-            # first pick an app
-            await interaction.response.send_message(
-                "Now select an app for this payment:", 
-                view=AppSelectView(chosen), 
-                ephemeral=True
-            )
-
-# Modal to add a new creator.
-class AddCreatorModal(discord.ui.Modal, title="Add New Creator"):
-    new_creator = discord.ui.TextInput(
-        label="New Creator Name",
-        placeholder="Enter the new creator's name",
-        style=discord.TextStyle.short
-    )
-    
-    async def on_submit(self, interaction: discord.Interaction):
-        global global_creators
-        new_name = self.new_creator.value
-        if new_name not in global_creators:
-            global_creators.append(new_name) # Append to local list
-            global_creators.sort() # Sort new local list
-            save_creators(global_creators)  # Persist the updated list to file.
-            await interaction.response.send_message(f"Creator '{new_name}' added!", ephemeral=True)
-        else:
-            await interaction.response.send_message(f"Creator '{new_name}' already exists.", ephemeral=True)
-        # Send back the creator selection view so the user can continue.
-        await interaction.followup.send("Please select a creator:", view=CreatorSelectView(), ephemeral=True)
-
-class AppSelect(discord.ui.Select):
-    def __init__(self, creator_name):
-        self.creator_name = creator_name
-        options = [discord.SelectOption(label=a) for a in global_apps]
-        super().__init__(placeholder="Select an app", min_values=1, max_values=1, options=options)
-
-    async def callback(self, interaction, /):
-        app = self.values[0]
-        # now launch the payment modal with both creator & app
-        await interaction.response.send_modal(PaymentModal(
-            creator_name=self.creator_name,
-            app_name=app
-        ))
-
-class AppSelectView(discord.ui.View):
-    def __init__(self, creator_name):
-        super().__init__(timeout=None)
-        self.add_item(AppSelect(creator_name))
+# ----------------- PAYMENT SUBMISSION -----------------
 
 # The Payment Modal submits to the queued_payments table
 class PaymentModal(discord.ui.Modal):
@@ -286,29 +219,60 @@ class PaymentModal(discord.ui.Modal):
         )
         await interaction.response.send_message(response_text, ephemeral=False)
 
-# Slash command version of pay: first, select a creator then fill in the rest.
+# Slash command version of pay: first, select a creator an app, using autocomplete and the ability to add new creators
+# Then show the payment modal
 @bot.tree.command(
     name="pay",
-    description="Submit a payment (creator via autocomplete)"
+    description="Submit a payment (creator & app via autocomplete)"
 )
 @app_commands.describe(
-    creator="Start typing a creator name…"
+    creator="Start typing a creator name…",
+    app="Start typing an app name…"
 )
 @app_commands.autocomplete(
-    creator=creator_autocomplete
+    creator=creator_autocomplete,
+    app=app_autocomplete
+)
+@bot.tree.command(
+    name="pay",
+    description="Submit a payment (creator & app via autocomplete)"
+)
+@app_commands.describe(
+    creator="Start typing a creator name…",
+    app="Start typing an app name…"
+)
+@app_commands.autocomplete(
+    creator=creator_autocomplete,
+    app=app_autocomplete
 )
 async def pay(
     interaction: discord.Interaction,
-    creator: str
+    creator: str,
+    app: str
 ):
-    """Slash‑command: picks creator via autocomplete, then shows app dropdown."""
-    await interaction.response.send_message(
-        "Now select an app for this payment:",
-        view=AppSelectView(creator),
-        ephemeral=True
-    )
+    """Slash‑command: picks creator & app via autocomplete."""
+    # auto‑add unknown creators only
+    if creator not in global_creators:
+        save_creators([creator])
+        global_creators.append(creator)
+        global_creators.sort()
+        prefix = f"✅ Creator `{creator}` added!"
+    else:
+        prefix = None
 
-# ----------------- END OF PAYMENT SUBMISSION WITH DROPDOWN -----------------
+    if prefix:
+        # 1) Let the user know we added them
+        await interaction.response.send_message(prefix, ephemeral=True)
+        # 2) Then open the modal as a follow‑up
+        await interaction.followup.send_modal(
+            PaymentModal(creator_name=creator, app_name=app)
+        )
+    else:
+        # No prefix → skip straight to the modal
+        await interaction.response.send_modal(
+            PaymentModal(creator_name=creator, app_name=app)
+        )
+# ----------------- END OF PAYMENT SUBMISSION -----------------
 
 
 
