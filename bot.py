@@ -233,18 +233,6 @@ class PaymentModal(discord.ui.Modal):
     creator=creator_autocomplete,
     app=app_autocomplete
 )
-@bot.tree.command(
-    name="pay",
-    description="Submit a payment (creator & app via autocomplete)"
-)
-@app_commands.describe(
-    creator="Start typing a creator name…",
-    app="Start typing an app name…"
-)
-@app_commands.autocomplete(
-    creator=creator_autocomplete,
-    app=app_autocomplete
-)
 async def pay(
     interaction: discord.Interaction,
     creator: str,
