@@ -375,8 +375,7 @@ import aiohttp
 from discord.ext import tasks
 
 # Pull in your TOKEN and CHANNEL_ID from env
-# CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
-CHANNEL_ID = 1361740274371530933
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 def format_balances(data: dict) -> str:
     """Turn the JSON into a markdown string, including the account name."""
