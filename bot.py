@@ -413,28 +413,28 @@ async def fetch_accounts():
     {
       "accounts": [
         {
-          "accountNumber": "123",
+          "accountNumber": "1984429715",
           "name": "Astra",
-          "availableBalance": 100000,
-          "currentBalance": 93000
+          "availableBalance": 93000,
+          "currentBalance": 100000
         },
         {
-          "accountNumber": "456",
+          "accountNumber": "99265598157",
           "name": "Haven",
-          "availableBalance": 80000,
-          "currentBalance": 78000
+          "availableBalance": 78000,
+          "currentBalance": 80000
         },
         {
-          "accountNumber": "789",
+          "accountNumber": "6429081385",
           "name": "Berry",
-          "availableBalance": 75000,
-          "currentBalance": 70000
+          "availableBalance": 70000,
+          "currentBalance": 75000
         },
         {
-          "accountNumber": "91011",
+          "accountNumber": "2263409985",
           "name": "Saga",
-          "availableBalance": 30000,
-          "currentBalance": 25000
+          "availableBalance": 25000,
+          "currentBalance": 30000
         }
       ]
     }
