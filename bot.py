@@ -455,7 +455,7 @@ async def daily_balances():
         return
 
     data = await fetch_accounts()
-    await channel.send(format_balances(data))
+    await channel.send(format_balances(data), ephemeral=True)
 
 # ----------------- END BUDGET MESSAGING (ip) -----------------
 
