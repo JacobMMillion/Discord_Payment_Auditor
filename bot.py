@@ -9,13 +9,14 @@ import psycopg2
 
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
+CONN_STR = os.getenv('DATABASE_URL')
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True  # Enables member caching
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-CONN_STR = os.getenv('DATABASE_URL')
+# ----------------- PAYMENTS AND AUDITS -----------------
 
 # Load creator names from the creator_names table
 def load_creators():
@@ -125,6 +126,10 @@ async def on_ready():
     # Sync slash commands with Discord so the new command is registered.
     await bot.tree.sync()
     print(f'{bot.user} has connected to Discord!')
+
+    # Added for budget messaging
+    if not daily_balances.is_running():
+        daily_balances.start()
 
 @bot.command(name='ping', help='Responds with a greeting')
 async def hello(ctx):
@@ -359,11 +364,94 @@ async def audit(
             "📭 No payments found matching those filters.",
             ephemeral=True
         )
+# ----------------- END PAYMENTS AND AUDITS -----------------
 
 
 
 
+# ----------------- BUDGET MESSAGING (ip) -----------------
+import json
+import aiohttp
+from discord.ext import tasks
 
+# Pull in your TOKEN and CHANNEL_ID from env
+# CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
+CHANNEL_ID = 1361740274371530933
+
+def format_balances(data: dict) -> str:
+    """Turn the JSON into a markdown string, including the account name."""
+    lines = ["**Account Balances:**"]
+    for acct in data["accounts"]:
+        name  = acct.get("name", "Unknown")
+        num   = acct["accountNumber"]
+        avail = acct["availableBalance"]
+        curr  = acct["currentBalance"]
+        lines.append(f"- **{name}** (`{num}`): Available ${avail:,.2f}, Current ${curr:,.2f}")
+    return "\n".join(lines)
+
+async def fetch_accounts():
+    # TODO: swap this stub for your real Mercury API call
+    """
+    # This will look something like this:
+
+    # Pull your Mercury API token from env
+    MERCURY_TOKEN = os.getenv("MERCURY_API_TOKEN")
+    url = "https://api.mercury.com/api/v1/accounts"
+    headers = {
+        "accept": "application/json",
+        "Authorization": f"Bearer {MERCURY_TOKEN}"
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, headers=headers) as resp:
+            resp.raise_for_status()
+            return await resp.json()
+    """
+
+    # TESTING: stubbed Mercury API response
+    response_json = """
+    {
+      "accounts": [
+        {
+          "accountNumber": "123",
+          "name": "Operating Account",
+          "availableBalance": 100,
+          "currentBalance": 120
+        },
+        {
+          "accountNumber": "456",
+          "name": "Rainy Day Fund",
+          "availableBalance": 200,
+          "currentBalance": 210
+        }
+      ]
+    }
+    """
+    return json.loads(response_json)
+
+@bot.tree.command(name="balances", description="Show current account balances")
+async def balances(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+    data = await fetch_accounts()
+    await interaction.followup.send(format_balances(data), ephemeral=True)
+
+@tasks.loop(hours=24)
+async def daily_balances():
+    await bot.wait_until_ready()
+    channel = bot.get_channel(CHANNEL_ID)
+    if not channel:
+        print(f"❌ Could not find channel {CHANNEL_ID}")
+        return
+    data = await fetch_accounts()
+    await channel.send(format_balances(data))
+
+@daily_balances.before_loop
+async def before_daily():
+    # If you want it to fire immediately on startup, leave this empty.
+    # To gate it to 9 AM, uncomment & adjust the sleep logic below.
+    pass
+
+# ----------------- END BUDGET MESSAGING (ip) -----------------
 
 # MAIN
 bot.run(TOKEN)
