@@ -441,11 +441,11 @@ async def fetch_accounts():
     """
     return json.loads(response_json)
 
-@bot.tree.command(name="balances", description="Show current account balances")
-async def balances(interaction: discord.Interaction):
-    await interaction.response.defer(thinking=True)
+@bot.tree.command(name="budget", description="Show current account balances")
+async def budget(interaction: discord.Interaction):
     data = await fetch_accounts()
-    await interaction.followup.send(format_balances(data), ephemeral=True)
+    msg  = format_balances(data)
+    await interaction.response.send_message(msg, ephemeral=True)
 
 @tasks.loop(time=time(hour=6, minute=0, tzinfo=EASTERN))
 async def daily_balances():
@@ -455,7 +455,7 @@ async def daily_balances():
         return
 
     data = await fetch_accounts()
-    await channel.send(format_balances(data), ephemeral=True)
+    await channel.send(format_balances(data))
 
 # ----------------- END BUDGET MESSAGING (ip) -----------------
 
