@@ -1,9 +1,9 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
 import os
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, time
 from zoneinfo import ZoneInfo
 import psycopg2
 
@@ -127,7 +127,7 @@ async def on_ready():
     await bot.tree.sync()
     print(f'{bot.user} has connected to Discord!')
 
-    # Added for budget messaging
+    # Added for budget messaging, should message at 6AM EST daily
     if not daily_balances.is_running():
         daily_balances.start()
 
@@ -372,7 +372,8 @@ async def audit(
 # ----------------- BUDGET MESSAGING (ip) -----------------
 import json
 import aiohttp
-from discord.ext import tasks
+
+EASTERN = ZoneInfo("America/New_York")
 
 # Pull in your TOKEN and CHANNEL_ID from env
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
@@ -413,15 +414,25 @@ async def fetch_accounts():
       "accounts": [
         {
           "accountNumber": "123",
-          "name": "Operating Account",
-          "availableBalance": 100,
-          "currentBalance": 120
+          "name": "Astra",
+          "availableBalance": 100000,
+          "currentBalance": 93000
         },
         {
           "accountNumber": "456",
-          "name": "Rainy Day Fund",
-          "availableBalance": 200,
-          "currentBalance": 210
+          "name": "Haven",
+          "availableBalance": 80000,
+          "currentBalance": 78000
+        },
+          "accountNumber": "789",
+          "name": "Berry",
+          "availableBalance": 75000,
+          "currentBalance": 70000
+        },
+          "accountNumber": "91011",
+          "name": "Saga",
+          "availableBalance": 30000,
+          "currentBalance": 25000
         }
       ]
     }
@@ -434,21 +445,15 @@ async def balances(interaction: discord.Interaction):
     data = await fetch_accounts()
     await interaction.followup.send(format_balances(data), ephemeral=True)
 
-@tasks.loop(hours=24)
+@tasks.loop(time=time(hour=6, minute=0, tzinfo=EASTERN))
 async def daily_balances():
-    await bot.wait_until_ready()
     channel = bot.get_channel(CHANNEL_ID)
     if not channel:
         print(f"❌ Could not find channel {CHANNEL_ID}")
         return
+
     data = await fetch_accounts()
     await channel.send(format_balances(data))
-
-@daily_balances.before_loop
-async def before_daily():
-    # If you want it to fire immediately on startup, leave this empty.
-    # To gate it to 9 AM, uncomment & adjust the sleep logic below.
-    pass
 
 # ----------------- END BUDGET MESSAGING (ip) -----------------
 
