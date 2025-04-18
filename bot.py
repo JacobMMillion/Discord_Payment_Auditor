@@ -424,11 +424,13 @@ async def fetch_accounts():
           "availableBalance": 80000,
           "currentBalance": 78000
         },
+        {
           "accountNumber": "789",
           "name": "Berry",
           "availableBalance": 75000,
           "currentBalance": 70000
         },
+        {
           "accountNumber": "91011",
           "name": "Saga",
           "availableBalance": 30000,
